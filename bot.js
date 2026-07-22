@@ -1,16 +1,18 @@
-// bot.js
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const express = require('express');
 const bodyParser = require('body-parser');
 
 const app = express();
-app.use(bodyParser.json());
+const port = process.env.PORT || 10000;
 
-// WhatsApp Client Initialize (LocalAuth দিয়ে সেশন সেভ থাকবে)
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
+        headless: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -23,52 +25,50 @@ const client = new Client({
     }
 });
 
-// Logs-এ QR Code দেখাবে (Render-এ স্ক্যান করার জন্য)
 client.on('qr', (qr) => {
-    console.log('নিচের QR Code টি আপনার WhatsApp অ্যাপ দিয়ে স্ক্যান করুন:');
+    console.log('--- QR CODE ---');
     qrcode.generate(qr, { small: true });
 });
 
-// WhatsApp কানেক্ট হলে
 client.on('ready', () => {
     console.log('✅ WhatsApp Bot প্রস্তুত এবং কানেক্টেড আছে!');
 });
 
-// PHP থেকে রিকোয়েস্ট পাওয়ার জন্য API Endpoint
 app.post('/send-ticket-notification', async (req, res) => {
-    const { numbers, group_id, message } = req.body;
+    const { phone, name, ticket_id, issue } = req.body;
+
+    if (!phone) {
+        return res.status(400).json({ status: 'error', message: 'Phone number is required' });
+    }
 
     try {
-        // ১. যদি হোয়াটসঅ্যাপ গ্রুপে পাঠাতে চান
-        if (group_id && group_id.trim() !== "") {
-            await client.sendMessage(group_id, message);
-            console.log(`[Group Sent] Message sent to group: ${group_id}`);
+        let formattedPhone = phone.replace(/[^0-9]/g, '');
+        if (formattedPhone.startsWith('01')) {
+            formattedPhone = '88' + formattedPhone;
         }
+        const chatId = `${formattedPhone}@c.us`;
 
-        // ২. যদি একাধিক নম্বরে পাঠাতে চান (Array of numbers)
-        if (numbers && Array.isArray(numbers)) {
-            for (let number of numbers) {
-                let formattedNumber = number.replace(/[^0-9]/g, '');
-                if (formattedNumber.length === 11 && formattedNumber.startsWith('01')) {
-                    formattedNumber = '88' . formattedNumber;
-                }
-                const chatId = formattedNumber + '@c.us';
-                await client.sendMessage(chatId, message);
-                console.log(`[Direct Sent] Message sent to: ${formattedNumber}`);
-            }
-        }
+        const message = `🎟️ *নতুন সাপোর্ট টিকিট*\n\n` +
+                        `👤 নাম: ${name || 'N/A'}\n` +
+                        `🔢 টিকিট আইডি: #${ticket_id || 'N/A'}\n` +
+                        `📝 সমস্যা: ${issue || 'N/A'}\n\n` +
+                        `আমাদের টিম দ্রুত আপনার সাথে যোগাযোগ করবে।`;
 
-        res.status(200).json({ status: 'success', message: 'WhatsApp message sent successfully!' });
+        await client.sendMessage(chatId, message);
+        console.log(`Notification sent to ${formattedPhone}`);
+        res.json({ status: 'success', message: 'Message sent successfully' });
     } catch (error) {
-        console.error('Error sending WhatsApp message:', error);
-        res.status(500).json({ status: 'error', error: error.message });
+        console.error('Error sending message:', error);
+        res.status(500).json({ status: 'error', message: error.message });
     }
 });
 
-// Render-এর দেওয়া PORT অনুযায়ী সার্ভার চালু করা
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Node.js WhatsApp Bot listening on port ${PORT}`);
+app.get('/', (req, res) => {
+    res.send('WhatsApp Bot is running!');
 });
 
 client.initialize();
+
+app.listen(port, () => {
+    console.log(`🚀 Node.js WhatsApp Bot listening on port ${port}`);
+});
