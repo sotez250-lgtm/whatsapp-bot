@@ -20,6 +20,7 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
+            '--single-process',
             '--disable-gpu'
         ]
     }
@@ -65,6 +66,12 @@ app.post('/send-ticket-notification', async (req, res) => {
 
 app.get('/', (req, res) => {
     res.send('WhatsApp Bot is running!');
+});
+
+client.initialize();
+
+app.listen(port, () => {
+    console.log(`🚀 Node.js WhatsApp Bot listening on port ${port}`);
 });
 
 client.initialize();
