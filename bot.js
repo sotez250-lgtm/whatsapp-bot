@@ -70,12 +70,6 @@ app.get('/', (req, res) => {
 
 client.initialize();
 
-app.listen(port, () => {
-    console.log(`🚀 Node.js WhatsApp Bot listening on port ${port}`);
-});
-
-client.initialize();
-
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Node.js WhatsApp Bot listening on port ${port}`);
 });
