@@ -27,8 +27,10 @@ const client = new Client({
 });
 
 client.on('qr', (qr) => {
-    console.log('--- QR CODE ---');
+    console.log('\n=================== QR CODE ===================\n');
+    // small: true দিলে Render লগে QR Code ছড়াবে না, একদম ছোট ও পরিষ্কার আসবে
     qrcode.generate(qr, { small: true });
+    console.log('\n===============================================\n');
 });
 
 client.on('ready', () => {
