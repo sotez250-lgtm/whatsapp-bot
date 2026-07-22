@@ -1,13 +1,15 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const express = require('express');
 const bodyParser = require('body-parser');
+const QRCode = require('qrcode'); // ছবির মতো QR দেখানোর জন্য
 
 const app = express();
 const port = process.env.PORT || 10000;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+let latestQR = '';
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -27,14 +29,38 @@ const client = new Client({
 });
 
 client.on('qr', (qr) => {
-    console.log('\n=================== QR CODE ===================\n');
-    // small: true দিলে Render লগে QR Code ছড়াবে না, একদম ছোট ও পরিষ্কার আসবে
-    qrcode.generate(qr, { small: true });
-    console.log('\n===============================================\n');
+    console.log('⚡ নতুন QR Code তৈরি হয়েছে! /qr লিংকে গিয়ে স্ক্যান করুন।');
+    latestQR = qr;
 });
 
 client.on('ready', () => {
     console.log('✅ WhatsApp Bot প্রস্তুত এবং কানেক্টেড আছে!');
+    latestQR = ''; // কানেক্ট হয়ে গেলে QR মুছে যাবে
+});
+
+// ব্রাউজারে সুন্দর QR Code দেখানোর জন্য রাউট
+app.get('/qr', async (req, res) => {
+    if (!latestQR) {
+        return res.send(`
+            <div style="text-align:center; padding-top:50px; font-family:sans-serif;">
+                <h2>✅ বোট ইতিমধ্যে কানেক্টেড আছে অথবা QR তৈরি হয়নি!</h2>
+                <p>নতুন QR দেখতে চাইলে বোট রিস্টার্ট দিন বা কিছুক্ষণ অপেক্ষা করুন।</p>
+            </div>
+        `);
+    }
+
+    try {
+        const qrImage = await QRCode.toDataURL(latestQR);
+        res.send(`
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; background-color: #f4f6f8;">
+                <h2>📱 WhatsApp QR Code</h2>
+                <p>হোয়াটসঅ্যাপ থেকে <b>Linked Devices</b> এ গিয়ে এটি স্ক্যান করুন</p>
+                <img src="${qrImage}" alt="WhatsApp QR Code" style="border: 10px solid white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; height: 300px;"/>
+            </div>
+        `);
+    } catch (err) {
+        res.status(500).send('Error generating QR Code image');
+    }
 });
 
 app.post('/send-ticket-notification', async (req, res) => {
